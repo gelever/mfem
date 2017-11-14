@@ -480,23 +480,17 @@ void BilinearForm::ConformingAssemble()
    const SparseMatrix *P = fes->GetConformingProlongation();
    if (!P) { return; } // conforming mesh
 
-   SparseMatrix *R = Transpose(*P);
-   SparseMatrix *RA = mfem::Mult(*R, *mat);
-   delete mat;
+   SparseMatrix R = Transpose(*P);
+   SparseMatrix RA = mfem::Mult(R, *mat);
+
+   SparseMatrix RAP = mfem::Mult(RA, *P);
+   mat->Swap(RAP);
+
    if (mat_e)
    {
-      SparseMatrix *RAe = mfem::Mult(*R, *mat_e);
-      delete mat_e;
-      mat_e = RAe;
-   }
-   delete R;
-   mat = mfem::Mult(*RA, *P);
-   delete RA;
-   if (mat_e)
-   {
-      SparseMatrix *RAeP = mfem::Mult(*mat_e, *P);
-      delete mat_e;
-      mat_e = RAeP;
+      SparseMatrix RAe = mfem::Mult(R, *mat_e);
+      SparseMatrix RAeP = mfem::Mult(RAe, *P);
+      mat_e->Swap(RAeP);
    }
 
    height = mat->Height();
@@ -1055,19 +1049,16 @@ void MixedBilinearForm::ConformingAssemble()
    const SparseMatrix *P2 = test_fes->GetConformingProlongation();
    if (P2)
    {
-      SparseMatrix *R = Transpose(*P2);
-      SparseMatrix *RA = mfem::Mult(*R, *mat);
-      delete R;
-      delete mat;
-      mat = RA;
+      SparseMatrix R = Transpose(*P2);
+      SparseMatrix RA = mfem::Mult(R, *mat);
+      mat->Swap(RA);
    }
 
    const SparseMatrix *P1 = trial_fes->GetConformingProlongation();
    if (P1)
    {
-      SparseMatrix *RAP = mfem::Mult(*mat, *P1);
-      delete mat;
-      mat = RAP;
+      SparseMatrix RAP = mfem::Mult(*mat, *P1);
+      mat->Swap(RAP);
    }
 
    height = mat->Height();

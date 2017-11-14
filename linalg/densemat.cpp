@@ -2977,6 +2977,14 @@ dgemm_(char *, char *, int *, int *, int *, double *, double *,
        int *, double *, int *, double *, double *, int *);
 #endif
 
+DenseMatrix Mult(const DenseMatrix &b, const DenseMatrix &c)
+{
+    DenseMatrix a(b.Height(), c.Width());
+    Mult(b, c, a);
+
+    return a;
+}
+
 void Mult(const DenseMatrix &b, const DenseMatrix &c, DenseMatrix &a)
 {
    MFEM_ASSERT(a.Height() == b.Height() && a.Width() == c.Width() &&

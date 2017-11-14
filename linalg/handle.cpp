@@ -114,11 +114,9 @@ void OperatorHandle::MakePtAP(OperatorHandle &A, OperatorHandle &P)
    {
       case Operator::MFEM_SPARSEMAT:
       {
-         SparseMatrix *R  = mfem::Transpose(*P.As<SparseMatrix>());
-         SparseMatrix *RA = mfem::Mult(*R, *A.As<SparseMatrix>());
-         delete R;
-         pSet(mfem::Mult(*RA, *P.As<SparseMatrix>()));
-         delete RA;
+         SparseMatrix R  = mfem::Transpose(*P.As<SparseMatrix>());
+         SparseMatrix RA = mfem::Mult(R, *A.As<SparseMatrix>());
+         pSet(new SparseMatrix(mfem::Mult(RA, *P.As<SparseMatrix>())));
          break;
       }
 #ifdef MFEM_USE_MPI
@@ -148,8 +146,9 @@ void OperatorHandle::MakeRAP(OperatorHandle &Rt, OperatorHandle &A,
    {
       case Operator::MFEM_SPARSEMAT:
       {
-         pSet(mfem::RAP(*Rt.As<SparseMatrix>(), *A.As<SparseMatrix>(),
-                        *P.As<SparseMatrix>()));
+         //pSet(mfem::RAP(*Rt.As<SparseMatrix>(), *A.As<SparseMatrix>(),
+                        //*P.As<SparseMatrix>()));
+         pSet(new SparseMatrix(mfem::RAP(*Rt.As<SparseMatrix>(), *A.As<SparseMatrix>())));
          break;
       }
 #ifdef MFEM_USE_MPI

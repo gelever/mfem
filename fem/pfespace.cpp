@@ -454,7 +454,7 @@ void ParFiniteElementSpace::Build_Dof_TrueDof_Matrix() const // matrix P
 
    SparseMatrix Pdiag;
    P->GetDiag(Pdiag);
-   R = Transpose(Pdiag);
+   R = new SparseMatrix(Transpose(Pdiag));
 }
 
 void ParFiniteElementSpace::DivideByGroupSize(double *vec)

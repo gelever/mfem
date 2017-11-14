@@ -244,15 +244,13 @@ void StaticCondensation::Finalize()
       {
          if (S->Height() != cP->Width())
          {
-            SparseMatrix *cS = mfem::RAP(*cP, *S, *cP);
-            delete S;
-            S = cS;
+            SparseMatrix cS = mfem::RAP(*cP, *S, *cP);
+            S->Swap(cS);
          }
          if (S_e && S_e->Height() != cP->Width())
          {
-            SparseMatrix *cS_e = mfem::RAP(*cP, *S_e, *cP);
-            delete S_e;
-            S = cS_e;
+            SparseMatrix cS_e = mfem::RAP(*cP, *S_e, *cP);
+            S->Swap(cS_e);
          }
       }
    }

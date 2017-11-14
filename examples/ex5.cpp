@@ -156,11 +156,11 @@ int main(int argc, char *argv[])
    bVarf->Finalize();
    SparseMatrix & B(bVarf->SpMat());
    B *= -1.;
-   SparseMatrix *BT = Transpose(B);
+   SparseMatrix BT = Transpose(B);
 
    BlockMatrix darcyMatrix(block_offsets);
    darcyMatrix.SetBlock(0,0, &M);
-   darcyMatrix.SetBlock(0,1, BT);
+   darcyMatrix.SetBlock(0,1, &BT);
    darcyMatrix.SetBlock(1,0, &B);
 
    // 9. Construct the operators for preconditioner
@@ -170,21 +170,21 @@ int main(int argc, char *argv[])
    //
    //     Here we use Symmetric Gauss-Seidel to approximate the inverse of the
    //     pressure Schur Complement
-   SparseMatrix *MinvBt = Transpose(B);
+   SparseMatrix MinvBt = Transpose(B);
    Vector Md(M.Height());
    M.GetDiag(Md);
    for (int i = 0; i < Md.Size(); i++)
    {
-      MinvBt->ScaleRow(i, 1./Md(i));
+      MinvBt.ScaleRow(i, 1./Md(i));
    }
-   SparseMatrix *S = Mult(B, *MinvBt);
+   SparseMatrix S = Mult(B, MinvBt);
 
    Solver *invM, *invS;
    invM = new DSmoother(M);
 #ifndef MFEM_USE_SUITESPARSE
-   invS = new GSSmoother(*S);
+   invS = new GSSmoother(S);
 #else
-   invS = new UMFPackSolver(*S);
+   invS = new UMFPackSolver(S);
 #endif
 
    invM->iterative_mode = false;
@@ -282,9 +282,6 @@ int main(int argc, char *argv[])
    delete gform;
    delete invM;
    delete invS;
-   delete S;
-   delete MinvBt;
-   delete BT;
    delete mVarf;
    delete bVarf;
    delete W_space;

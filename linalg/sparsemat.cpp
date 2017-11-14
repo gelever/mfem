@@ -2572,7 +2572,7 @@ void SparseMatrix::Destroy()
 #endif
 }
 
-int SparseMatrix::ActualWidth()
+int SparseMatrix::ActualWidth() const
 {
    int awidth = 0;
    if (A)
@@ -2609,7 +2609,7 @@ void SparseMatrixFunction (SparseMatrix & S, double (*f)(double))
    }
 }
 
-SparseMatrix *Transpose (const SparseMatrix &A)
+SparseMatrix Transpose (const SparseMatrix &A)
 {
    MFEM_VERIFY(
       A.Finalized(),
@@ -2660,7 +2660,7 @@ SparseMatrix *Transpose (const SparseMatrix &A)
    }
    At_i[0] = 0;
 
-   return  new SparseMatrix (At_i, At_j, At_data, n, m);
+   return SparseMatrix (At_i, At_j, At_data, n, m);
 }
 
 SparseMatrix *TransposeAbstractSparseMatrix (const AbstractSparseMatrix &A,
@@ -2739,9 +2739,7 @@ SparseMatrix *TransposeAbstractSparseMatrix (const AbstractSparseMatrix &A,
    return new SparseMatrix(At_i, At_j, At_data, n, m);
 }
 
-
-SparseMatrix *Mult (const SparseMatrix &A, const SparseMatrix &B,
-                    SparseMatrix *OAB)
+SparseMatrix Mult(const SparseMatrix &A, const SparseMatrix &B)
 {
    int nrowsA, ncolsA, nrowsB, ncolsB;
    int *A_i, *A_j, *B_i, *B_j, *C_i, *C_j, *B_marker;
@@ -2774,53 +2772,34 @@ SparseMatrix *Mult (const SparseMatrix &A, const SparseMatrix &B,
       B_marker[ib] = -1;
    }
 
-   if (OAB == NULL)
-   {
-      C_i = new int[nrowsA+1];
+   C_i = new int[nrowsA+1];
 
-      C_i[0] = num_nonzeros = 0;
-      for (ic = 0; ic < nrowsA; ic++)
-      {
-         for (ia = A_i[ic]; ia < A_i[ic+1]; ia++)
-         {
-            ja = A_j[ia];
-            for (ib = B_i[ja]; ib < B_i[ja+1]; ib++)
-            {
+   C_i[0] = num_nonzeros = 0;
+   for (ic = 0; ic < nrowsA; ic++)
+   {
+       for (ia = A_i[ic]; ia < A_i[ic+1]; ia++)
+       {
+           ja = A_j[ia];
+           for (ib = B_i[ja]; ib < B_i[ja+1]; ib++)
+           {
                jb = B_j[ib];
                if (B_marker[jb] != ic)
                {
-                  B_marker[jb] = ic;
-                  num_nonzeros++;
+                   B_marker[jb] = ic;
+                   num_nonzeros++;
                }
-            }
-         }
-         C_i[ic+1] = num_nonzeros;
-      }
-
-      C_j    = new int[num_nonzeros];
-      C_data = new double[num_nonzeros];
-
-      C = new SparseMatrix (C_i, C_j, C_data, nrowsA, ncolsB);
-
-      for (ib = 0; ib < ncolsB; ib++)
-      {
-         B_marker[ib] = -1;
-      }
+           }
+       }
+       C_i[ic+1] = num_nonzeros;
    }
-   else
+
+   C_j    = new int[num_nonzeros];
+   C_data = new double[num_nonzeros];
+
+
+   for (ib = 0; ib < ncolsB; ib++)
    {
-      C = OAB;
-
-      MFEM_VERIFY(nrowsA == C -> Height() && ncolsB == C -> Width(),
-                  "Input matrix sizes do not match output sizes"
-                  << " nrowsA = " << nrowsA
-                  << ", C->Height() = " << C->Height()
-                  << " ncolsB = " << ncolsB
-                  << ", C->Width() = " << C->Width());
-
-      C_i    = C -> GetI();
-      C_j    = C -> GetJ();
-      C_data = C -> GetData();
+       B_marker[ib] = -1;
    }
 
    counter = 0;
@@ -2839,10 +2818,85 @@ SparseMatrix *Mult (const SparseMatrix &A, const SparseMatrix &B,
             if (B_marker[jb] < row_start)
             {
                B_marker[jb] = counter;
-               if (OAB == NULL)
-               {
-                  C_j[counter] = jb;
-               }
+               C_j[counter] = jb;
+
+               C_data[counter] = a_entry*b_entry;
+               counter++;
+            }
+            else
+            {
+               C_data[B_marker[jb]] += a_entry*b_entry;
+            }
+         }
+      }
+   }
+
+   delete [] B_marker;
+
+   return SparseMatrix (C_i, C_j, C_data, nrowsA, ncolsB);
+}
+
+
+void Mult(const SparseMatrix &A, const SparseMatrix &B, SparseMatrix& C)
+{
+   int nrowsA, ncolsA, nrowsB, ncolsB;
+   int *A_i, *A_j, *B_i, *B_j, *C_i, *C_j, *B_marker;
+   double *A_data, *B_data, *C_data;
+   int ia, ib, ic, ja, jb, num_nonzeros;
+   int row_start, counter;
+   double a_entry, b_entry;
+
+   nrowsA = A.Height();
+   ncolsA = A.Width();
+   nrowsB = B.Height();
+   ncolsB = B.Width();
+
+   MFEM_VERIFY(ncolsA == nrowsB,
+               "number of columns of A (" << ncolsA
+               << ") must equal number of rows of B (" << nrowsB << ")");
+
+   A_i    = A.GetI();
+   A_j    = A.GetJ();
+   A_data = A.GetData();
+   B_i    = B.GetI();
+   B_j    = B.GetJ();
+   B_data = B.GetData();
+
+   B_marker = new int[ncolsB];
+
+   for (ib = 0; ib < ncolsB; ib++)
+   {
+       B_marker[ib] = -1;
+   }
+
+   MFEM_VERIFY(nrowsA == C.Height() && ncolsB == C.Width(),
+           "Input matrix sizes do not match output sizes"
+           << " nrowsA = " << nrowsA
+           << ", C->Height() = " << C.Height()
+           << " ncolsB = " << ncolsB
+           << ", C->Width() = " << C.Width());
+
+   C_i    = C.GetI();
+   C_j    = C.GetJ();
+   C_data = C.GetData();
+
+   counter = 0;
+   for (ic = 0; ic < nrowsA; ic++)
+   {
+      // row_start = C_i[ic];
+      row_start = counter;
+      for (ia = A_i[ic]; ia < A_i[ic+1]; ia++)
+      {
+         ja = A_j[ia];
+         a_entry = A_data[ia];
+         for (ib = B_i[ja]; ib < B_i[ja+1]; ib++)
+         {
+            jb = B_j[ib];
+            b_entry = B_data[ib];
+            if (B_marker[jb] < row_start)
+            {
+               B_marker[jb] = counter;
+
                C_data[counter] = a_entry*b_entry;
                counter++;
             }
@@ -2855,15 +2909,13 @@ SparseMatrix *Mult (const SparseMatrix &A, const SparseMatrix &B,
    }
 
    MFEM_VERIFY(
-      OAB == NULL || counter == OAB->NumNonZeroElems(),
+      counter == C.NumNonZeroElems(),
       "With pre-allocated output matrix, number of non-zeros ("
-      << OAB->NumNonZeroElems()
+      << C.NumNonZeroElems()
       << ") did not match number of entries changed from matrix-matrix multiply, "
       << counter);
 
    delete [] B_marker;
-
-   return C;
 }
 
 SparseMatrix *MultAbstractSparseMatrix (const AbstractSparseMatrix &A,
@@ -2963,68 +3015,81 @@ SparseMatrix *MultAbstractSparseMatrix (const AbstractSparseMatrix &A,
    return C;
 }
 
-DenseMatrix *Mult (const SparseMatrix &A, DenseMatrix &B)
+DenseMatrix Mult(const SparseMatrix &A, const DenseMatrix &B)
 {
-   DenseMatrix *C = new DenseMatrix(A.Height(), B.Width());
-   Vector columnB, columnC;
+   DenseMatrix C(A.Height(), B.Width());
+
    for (int j = 0; j < B.Width(); ++j)
    {
-      B.GetColumnReference(j, columnB);
-      C->GetColumnReference(j, columnC);
+      const Vector columnB(B.GetData() + (B.Height() * j), B.Height());
+      Vector columnC(C.GetData() + (C.Height() * j), C.Height());
       A.Mult(columnB, columnC);
    }
    return C;
 }
 
-DenseMatrix *RAP (const SparseMatrix &A, DenseMatrix &P)
+DenseMatrix RAP(const SparseMatrix &A, const DenseMatrix &P)
 {
-   DenseMatrix R (P, 't'); // R = P^T
-   DenseMatrix *AP   = Mult (A, P);
-   DenseMatrix *_RAP = new DenseMatrix(R.Height(), AP->Width());
-   Mult (R, *AP, *_RAP);
-   delete AP;
-   return _RAP;
+   DenseMatrix R(P, 't'); // R = P^T
+
+   return Mult (R, Mult(A, P));
 }
 
-SparseMatrix *RAP (const SparseMatrix &A, const SparseMatrix &R,
-                   SparseMatrix *ORAP)
+SparseMatrix RAP (const SparseMatrix &A, const SparseMatrix &R)
 {
-   SparseMatrix *P  = Transpose (R);
-   SparseMatrix *AP = Mult (A, *P);
-   delete P;
-   SparseMatrix *_RAP = Mult (R, *AP, ORAP);
-   delete AP;
-   return _RAP;
+   SparseMatrix P  = Transpose (R);
+   SparseMatrix AP = Mult (A, P);
+   return Mult (R, AP);
 }
 
-SparseMatrix *RAP(const SparseMatrix &Rt, const SparseMatrix &A,
+void RAP_into(const SparseMatrix &A, const SparseMatrix &R,
+                   SparseMatrix& ORAP)
+{
+   SparseMatrix P  = Transpose (R);
+   SparseMatrix AP = Mult (A, P);
+   Mult (R, AP, ORAP);
+}
+
+SparseMatrix RAP(const SparseMatrix &Rt, const SparseMatrix &A,
                   const SparseMatrix &P)
 {
-   SparseMatrix * R = Transpose(Rt);
-   SparseMatrix * RA = Mult(*R,A);
-   delete R;
-   SparseMatrix * out = Mult(*RA, P);
-   delete RA;
-   return out;
+   SparseMatrix R = Transpose(Rt);
+   SparseMatrix RA = Mult(R,A);
+
+   return Mult(RA, P);
 }
 
-SparseMatrix *Mult_AtDA (const SparseMatrix &A, const Vector &D,
-                         SparseMatrix *OAtDA)
+SparseMatrix Mult_AtDA (const SparseMatrix &A, const Vector &D)
+{
+   SparseMatrix At = Transpose (A);
+
+   int At_nnz  = At.NumNonZeroElems();
+   const int * At_j    = At.GetJ();
+   double * At_data = At.GetData();
+
+   for (int i = 0; i < At_nnz; i++)
+   {
+      At_data[i] *= D(At_j[i]);
+   }
+   
+   return Mult (At, A);
+}
+
+void Mult_AtDA (const SparseMatrix &A, const Vector &D, SparseMatrix& OAtDA)
 {
    int i, At_nnz, *At_j;
    double *At_data;
 
-   SparseMatrix *At = Transpose (A);
-   At_nnz  = At -> NumNonZeroElems();
-   At_j    = At -> GetJ();
-   At_data = At -> GetData();
-   for (i = 0; i < At_nnz; i++)
+   SparseMatrix At = Transpose (A);
+   At_nnz  = At.NumNonZeroElems();
+   At_j    = At.GetJ();
+   At_data = At.GetData();
+   for (int i = 0; i < At_nnz; i++)
    {
       At_data[i] *= D(At_j[i]);
    }
-   SparseMatrix *AtDA = Mult (*At, A, OAtDA);
-   delete At;
-   return AtDA;
+   
+   Mult (At, A, OAtDA);
 }
 
 SparseMatrix * Add(double a, const SparseMatrix & A, double b,

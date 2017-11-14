@@ -516,7 +516,7 @@ BlockMatrix * Transpose(const BlockMatrix & A)
       for (int jcolAt = 0; jcolAt < At->NumColBlocks(); ++jcolAt)
          if (!A.IsZeroBlock(jcolAt, irowAt))
          {
-            At->SetBlock(irowAt, jcolAt, Transpose(A.GetBlock(jcolAt, irowAt)));
+            At->SetBlock(irowAt, jcolAt, new SparseMatrix(Transpose(A.GetBlock(jcolAt, irowAt))));
          }
    return At;
 }
@@ -534,7 +534,7 @@ BlockMatrix * Mult(const BlockMatrix & A, const BlockMatrix & B)
          for (int k = 0; k < A.NumColBlocks(); ++k)
             if (!A.IsZeroBlock(irowC, k) && !B.IsZeroBlock(k, jcolC))
             {
-               CijPieces.Append(Mult(A.GetBlock(irowC, k), B.GetBlock(k, jcolC)));
+               CijPieces.Append(new SparseMatrix(Mult(A.GetBlock(irowC, k), B.GetBlock(k, jcolC))));
             }
 
          if (CijPieces.Size() > 1)

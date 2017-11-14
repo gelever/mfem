@@ -353,6 +353,7 @@ void Add(double alpha, const DenseMatrix &A,
 
 /// Matrix matrix multiplication.  A = B * C.
 void Mult(const DenseMatrix &b, const DenseMatrix &c, DenseMatrix &a);
+DenseMatrix Mult(const DenseMatrix &b, const DenseMatrix &c);
 
 /// Matrix matrix multiplication.  A += B * C.
 void AddMult(const DenseMatrix &b, const DenseMatrix &c, DenseMatrix &a);

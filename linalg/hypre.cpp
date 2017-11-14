@@ -1075,8 +1075,8 @@ HypreParMatrix* HypreParMatrix::LeftDiagMult(const SparseMatrix &D,
    GetOffd(A_offd, col_map_offd);
 
    // multiply the blocks with D and create a new HypreParMatrix
-   SparseMatrix* DA_diag = mfem::Mult(D, A_diag);
-   SparseMatrix* DA_offd = mfem::Mult(D, A_offd);
+   SparseMatrix* DA_diag = new SparseMatrix(mfem::Mult(D, A_diag));
+   SparseMatrix* DA_offd = new SparseMatrix(mfem::Mult(D, A_offd));
 
    HypreParMatrix* DA =
       new HypreParMatrix(GetComm(),

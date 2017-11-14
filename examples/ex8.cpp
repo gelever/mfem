@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
    //        [   0     Shat^{-1} ]      Shat = (Bhat^T Sinv Bhat)
    //
    //    corresponding to the primal (x0) and interfacial (xhat) unknowns.
-   SparseMatrix * Shat = RAP(matBhat, matSinv, matBhat);
+   SparseMatrix Shat = RAP(matBhat, matSinv, matBhat);
 
 #ifndef MFEM_USE_SUITESPARSE
    const double prec_rtol = 1e-3;
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
    S0inv->SetRelTol(prec_rtol);
    S0inv->SetMaxIter(prec_maxit);
    CGSolver *Shatinv = new CGSolver;
-   Shatinv->SetOperator(*Shat);
+   Shatinv->SetOperator(Shat);
    Shatinv->SetPrintLevel(-1);
    Shatinv->SetRelTol(prec_rtol);
    Shatinv->SetMaxIter(prec_maxit);
@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
    Shatinv->iterative_mode = false;
 #else
    Operator *S0inv = new UMFPackSolver(matS0);
-   Operator *Shatinv = new UMFPackSolver(*Shat);
+   Operator *Shatinv = new UMFPackSolver(Shat);
 #endif
 
    BlockDiagonalPreconditioner P(offsets);
@@ -269,7 +269,6 @@ int main(int argc, char *argv[])
    // 13. Free the used memory.
    delete S0inv;
    delete Shatinv;
-   delete Shat;
    delete Bhat;
    delete B0;
    delete S0;
